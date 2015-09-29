@@ -131,8 +131,6 @@ io.on 'connection', (socket) ->
     # if we didn't find any candidate, we abort. We will come back here in 100ms later
     client.log 'closest ' + candidate_ball + ', distance ' + candidate_distance
     client.moveTo candidate_ball.x, candidate_ball.y
-    # we send move command to move to food's coordinates
-    return
 
   getDistanceBetweenBalls = (ball_1, ball_2) ->
     #this calculates distance between 2 balls
@@ -171,75 +169,64 @@ io.on 'connection', (socket) ->
       return
     #this ball is already a friend
     if ball.name == 'agario-client'
-      #if ball have name 'agario-client'
       client.addFriend ball_id
-      #add it to friends
-    return
+
   client.on 'friendLost', (friend) ->
-    #on friendLost event
     client.log 'I lost my friend: ' + friend
-    return
+
   client.on 'friendAdded', (friend_id) ->
-    #on friendEaten event
     friend = client.balls[friend_id]
     client.log 'Found new friend: ' + friend + '!'
-    return
-  #end of adding custom properties/events example
+
   client.once 'leaderBoardUpdate', (old, leaders) ->
-    #when we receive leaders list. Fire only once
-    name_array = leaders.map((ball_id) ->
-      #converting leader's IDs to leader's names
+    # when we receive leaders list. Fire only once
+    name_array = leaders.map (ball_id) ->
+      # converting leader's IDs to leader's names
       client.balls[ball_id].name or 'unnamed'
-    )
+
     client.log 'leaders on server: ' + name_array.join(', ')
     return
   client.on 'mineBallDestroy', (ball_id, reason) ->
-    #when my ball destroyed
     if reason.by
       client.log client.balls[reason.by] + ' ate my ball'
     if reason.reason == 'merge'
       client.log 'my ball ' + ball_id + ' merged with my other ball, now i have ' + client.my_balls.length + ' balls'
     else
       client.log 'i lost my ball ' + ball_id + ', ' + client.my_balls.length + ' balls left'
-    return
+
   client.on 'myNewBall', (ball_id) ->
-    #when i got new ball
     client.log 'my new ball ' + ball_id + ', total ' + client.my_balls.length
-    return
+
   client.on 'lostMyBalls', ->
-    #when i lost all my balls
     client.log 'lost all my balls, respawning'
     client.spawn 'poop'
-    #spawning new ball with nickname "agario-client"
-    return
+
   client.on 'somebodyAteSomething', (eater_ball, eaten_ball) ->
-    #when some ball ate some ball
     ball = client.balls[eater_ball]
-    #get eater ball
+    # get eater ball
     if !ball
       return
-    #if we don't know than ball, we don't care
+    # if we don't know than ball, we don't care
     if !ball.mine
       return
-    #if it's not our ball, we don't care
+
+    # if it's not our ball, we don't care
     client.log 'I ate ' + eaten_ball + ', my new size is ' + ball.size
-    return
+
   client.on 'connected', ->
-    #when we connected to server
+    # when we connected to server
     client.log 'spawning'
     client.spawn 'poop'
-    #spawning new ball
+    
+    # spawning new ball
     interval_id = setInterval(recalculateTarget, 10)
-    #we will search for target to eat every 100ms
-    return
+
   client.on 'connectionError', (e) ->
     client.log 'Connection failed with reason: ' + e
     client.log 'Server address set to: ' + client.server + ' please check if this is correct and working address'
-    return
+
   client.on 'reset', ->
-    #when client clears everything (connection lost?)
     clearInterval interval_id
-    return
 
   console.log 'Requesting server in region ' + region
   AgarioClient.servers.getFFAServer { region: region }, (srv) ->
