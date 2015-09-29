@@ -55,11 +55,13 @@ app.get '/', (req, res) ->
               var yLoc = ((ball.y + 10000) / 20000) * height;
               var radius = (ball.size / 20000) * width
 
-              sampleSVG.append('circle').style('stroke', 'gray').style('fill', ball.color).attr('r', radius).attr('cx', xLoc).attr('cy', yLoc).on('mouseover', function() {
-                d3.select(this).style('fill', 'aliceblue');
-              }).on('mouseout', function() {
-                d3.select(this).style('fill', 'white');
-              });
+              if(ball.visible) {
+                sampleSVG.append('circle').style('stroke', 'gray').style('fill', ball.color).attr('r', radius).attr('cx', xLoc).attr('cy', yLoc).on('mouseover', function() {
+                  d3.select(this).style('fill', 'aliceblue');
+                }).on('mouseout', function() {
+                  d3.select(this).style('fill', 'white');
+                });
+              }
             }
           }
 
@@ -81,6 +83,8 @@ io.on 'connection', (socket) ->
 
   recalculateTarget = ->
     candidate_ball = null
+    enemyCoords = {}
+    isEnemy = false
 
     currentBalls = {}
     for id, ball of client.balls
@@ -100,37 +104,57 @@ io.on 'connection', (socket) ->
       return
     # if our ball not spawned yet then we abort. We will come back here in 100ms later
     for ball_id of client.balls
+      thisBallEnemy = false
+
       # we go true all balls we know about
       ball = client.balls[ball_id]
       if ball.virus
         continue
-      # if ball is a virus (green non edible thing) then we skip it
       if !ball.visible
         continue
-      # if ball is not on our screen (field of view) then we skip it
       if ball.mine
         continue
-      # if ball is our ball - then we skip it
       if ball.isMyFriend()
         continue
-      # this is my friend, ignore him (implemented by custom property)
-      if ball.size / my_ball.size > 0.5
+      if ball.size > my_ball.size and getDistanceBetweenBalls(ball, my_ball) < my_ball.size + 300
+        unless isEnemy
+          enemyCoords =
+            x: ball.x
+            y: ball.y
+        else
+          enemyCoords.x += ball.x
+          enemyCoords.y += ball.y
+
+        candidate_ball = ball
+        isEnemy = true
+        thisBallEnemy = true
+      else if ball.size > my_ball.size
+        console.log "DISTANCE", getDistanceBetweenBalls(ball, my_ball)
         continue
-      # if ball is bigger than 50% of our size - then we skip it
+
+      # if ball.size / my_ball.size > 0.5
+      #   continue
       distance = getDistanceBetweenBalls(ball, my_ball)
-      # we calculate distances between our ball and candidate
+
       if candidate_ball and distance > candidate_distance
         continue
-      # if we do have some candidate and distance to it smaller, than distance to this ball, we skip it
+
       candidate_ball = ball
       # we found new candidate and we record him
       candidate_distance = getDistanceBetweenBalls(ball, my_ball)
       # we record distance to him to compare it with other balls
+
     if !candidate_ball
       return
     # if we didn't find any candidate, we abort. We will come back here in 100ms later
-    client.log 'closest ' + candidate_ball + ', distance ' + candidate_distance
-    client.moveTo candidate_ball.x, candidate_ball.y
+    # client.log 'closest ' + candidate_ball + ', distance ' + candidate_distance
+    if isEnemy
+      deltaX = my_ball.x - enemyCoords.x
+      deltaY = my_ball.y - enemyCoords.y
+      console.log "RUNNING FROM ENEMY"
+      client.moveTo my_ball.x + deltaX, my_ball.y + deltaY
+    else
+      client.moveTo candidate_ball.x, candidate_ball.y
 
   getDistanceBetweenBalls = (ball_1, ball_2) ->
     #this calculates distance between 2 balls
